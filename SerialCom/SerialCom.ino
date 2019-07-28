@@ -22,7 +22,7 @@ void loop()
     Serial.println(message);
   }
 
-  if (loop_num > 4) {
+  if (loop_num > 9) {
     Serial.println("pending");
     loop_num = 0;
   }
