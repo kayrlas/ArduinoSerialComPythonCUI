@@ -1,6 +1,6 @@
 #! /usr/bin/env python3.7
 # -*- coding: utf-8 -*-
-# Created by kayrlas on Jul 26, 2019 (https://github.com/kayrlas)
+# Created by kayrlas on August 5, 2019 (https://github.com/kayrlas)
 # SerialCom.py
 
 import time
@@ -22,14 +22,15 @@ class SerialCom(object):
     ```python
     if __name__ == "__main__":
         com = SerialCom()
-        com.start_serialcom(9600, 0.1)
+        com.start_serialcom(9600, 0.1 , true)
     ```
     """
 
-    def __init__(self, baudrate: int, timeout: float):
+    def __init__(self, baudrate: int, timeout: float, write: bool):
         self.devices = []   # find_comports
         self.device = None  # select_comport
         self.serial = Serial(baudrate=baudrate, timeout=timeout)
+        self.write = write
 
 
     def find_comports(self) -> int:
@@ -129,7 +130,7 @@ class SerialCom(object):
             return True
 
 
-    def serial_wirite(self):
+    def serial_write(self):
         """Write strings to comport
 
         Returns:
@@ -137,39 +138,50 @@ class SerialCom(object):
         """
         _format = "%Y/%m/%d %H:%M:%S"
 
-        try:
-            while self.serial.is_open:
-                _t1 = time.strftime(_format, time.localtime())
-                try:
-                    _send_data = input(_t1 + " (TX) >> ")
-                except EOFError as ee:
-                    print("String input interrupted")
-                    self.close_comport()
-                else:
-                    self.serial.write(_send_data.encode("utf-8"))
-                    # time.sleep(1)
-        except KeyboardInterrupt:
-            self.close_comport()
+        while self.serial.is_open:
+            _t1 = time.strftime(_format, time.localtime())
+            try:
+                _send_data = input(_t1 + " (TX) >> ")
+            except EOFError:
+                print("Sending texts canceled.")
+                self.close_comport()
+            else:
+                self.serial.write(_send_data.encode("utf-8"))
+                time.sleep(1)
+
+
+    def start_serialwrite(self):
+        """Start `serial_write` in another thread
+
+        Returns:
+            None
+        """
+        self.th_swrite = Thread(target=self.serial_write)
+        self.th_swrite.start()
 
 
     def start_serialcom(self) -> bool:
+        """Start serial communication
+
+        Returns:
+            `bool`: Serial communication normally
+        """
         _format = "%Y/%m/%d %H:%M:%S"
 
         if not self.open_comport():
             print("Cannot open the comport. Please try again.")
             return False
 
-        try:
-            _th_swrite = Thread(target=self.serial_wirite)
-            _th_swrite.start()
+        if self.write:
+            self.start_serialwrite()
 
+        try:
             while self.serial.is_open:
                 try:
                     _recv_data = self.serial.readline()
                 except SerialException:
                     print("%s was disconnected while reading comport" % self.serial.port)
                     self.close_comport()
-                    _th_swrite.join()
                 else:
                     if _recv_data != b'':
                         _t1 = time.strftime(_format, time.localtime())
@@ -177,15 +189,26 @@ class SerialCom(object):
                         time.sleep(1)
         except KeyboardInterrupt:
             self.close_comport()
-            _th_swrite.join()
-            print("Comport has been closed. See you.")
-            return True
-        else:
-            print("Comport has been closed. See you.")
-            print(_th_swrite.is_alive())
-            return True
+
+        if self.write:
+            self.th_swrite.join()
+
+        print("Comport has been closed. See you.")
+        return True
+
+
+    def get_device_list(self) -> list:
+        return self.devices
+
+
+    def get_device(self):
+        return self.device
+
+
+    def get_write_available(self) -> bool:
+        return self.write
 
 
 if __name__ == "__main__":
-    com = SerialCom(baudrate=9600, timeout=0.1)
+    com = SerialCom(baudrate=9600, timeout=0.1, write=False)
     com.start_serialcom()
