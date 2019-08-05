@@ -142,11 +142,14 @@ class SerialCom(object):
             _t1 = time.strftime(_format, time.localtime())
             try:
                 _send_data = input(_t1 + " (TX) >> ")
+                self.serial.write(_send_data.encode("utf-8"))
             except EOFError:
                 print("Sending texts canceled.")
                 self.close_comport()
+            except SerialException:
+                print("%s was disconnected while writing texts" % self.serial.port)
+                self.close_comport()
             else:
-                self.serial.write(_send_data.encode("utf-8"))
                 time.sleep(1)
 
 
@@ -210,5 +213,5 @@ class SerialCom(object):
 
 
 if __name__ == "__main__":
-    com = SerialCom(baudrate=9600, timeout=0.1, write=False)
+    com = SerialCom(baudrate=9600, timeout=0.1, write=True)
     com.start_serialcom()
